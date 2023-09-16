@@ -1,0 +1,536 @@
+// ==UserScript==
+// @name           IITC plugin: Anomaly Info
+// @description    IITC Anomaly Info
+// @version        6
+// @category       Highlighter
+// @namespace      https://github.com/jonatkins/ingress-intel-total-conversion
+// @description    [kingjkk-2016-08-07-000000] IITC Anomaly Info
+// @include        https://*.ingress.com/intel*
+// @include        http://*.ingress.com/intel*
+// @match          https://*.ingress.com/intel*
+// @match          http://*.ingress.com/intel*
+// @include        https://*.ingress.com/mission/*
+// @include        http://*.ingress.com/mission/*
+// @match          https://*.ingress.com/mission/*
+// @match          http://*.ingress.com/mission/*
+// @grant          none
+// ==/UserScript==
+
+// ===============================
+// Anomaly Info VcL
+// Plugin correct by ShadowVcL
+// ===============================
+
+function wrapper(plugin_info) {
+  // ensure plugin framework is there, even if iitc is not yet loaded
+  if(typeof window.plugin !== 'function') window.plugin = function() {};
+
+  //PLUGIN AUTHORS: writing a plugin outside of the IITC build environment? if so, delete these lines!!
+  //(leaving them in place might break the 'About IITC' page or break update checks)
+  //plugin_info.buildName = 'jonatkins';
+  //plugin_info.dateTimeVersion = '20150917.154202';
+  //plugin_info.pluginId = 'portal-highlighter-hide-team';
+  //END PLUGIN AUTHORS NOTE
+
+// PLUGIN START ////////////////////////////////////////////////////////
+
+function get_type(thing){
+    if(thing===null)return "[object Null]"; // special case
+    return Object.prototype.toString.call(thing);
+}
+
+  // use own namespace for plugin
+    window.plugin.anomalyInfo = function() {};
+
+    window.plugin.anomalyInfo.readyForRechargeRooms = false;
+
+    // =============== Temp ==============
+    window.plugin.anomalyInfo.anomalyPortalSucess = function(data, guid) {
+        var shardType = data.result[17][0];
+        var shardName = data.result[17][1];
+        var shardList = data.result[17][2];
+
+        var scoreIncrement = 0;
+        var shardsDiv = document.getElementById("#" + guid + "_capturedInfo");
+        shardsDiv.innerHTML = '&nbsp;&nbsp;&nbsp;&nbsp;' + shardName;
+        for(var i = 0; i < shardList.length; i++) {
+            shardsDiv.innerHTML += " #" + shardList[i];
+            scoreIncrement++;
+        }
+
+        var portal = portals[guid];
+        if(portal.capturedByRes) {
+            var resScoreDiv = document.getElementById('resScoreDiv');
+            resScoreDiv.innerHTML = (Number(resScoreDiv.innerHTML) + scoreIncrement);
+        } else if(portal.capturedByEnl) {
+            var enlScoreDiv = document.getElementById('enlScoreDiv');
+            enlScoreDiv.innerHTML = (Number(enlScoreDiv.innerHTML) + scoreIncrement);
+        }
+    }
+
+    window.plugin.anomalyInfo.anomalyPortalFailure = function(guid) {
+      alert('Anomaly Portal Failure: ' + guid);
+    }
+
+    window.plugin.anomalyInfo.grabArtifactInfo = function(guid) {
+        window.postAjax('getPortalDetails',
+            {guid: guid},
+            function(res) { window.plugin.anomalyInfo.anomalyPortalSucess(res, guid); },
+            function() { window.plugin.anomalyInfo.anomalyPortalFailure(guid); }
+        );
+    }
+
+
+// ...
+// (previous code remains the same)
+
+// =========== Data Analysis - Look in the IITC structures to see what's there =================
+window.plugin.anomalyInfo.organizePortals = function (){
+
+    window.plugin.anomalyInfo.resTargets = [];
+    window.plugin.anomalyInfo.enlTargets = [];
+    window.plugin.anomalyInfo.shardSources = [];
+    window.plugin.anomalyInfo.resCapturedShards = [];
+    window.plugin.anomalyInfo.enlCapturedShards = [];
+    window.plugin.anomalyInfo.frackers = [];
+    window.plugin.anomalyInfo.clusters = [];
+    window.plugin.anomalyInfo.volatiles = [];
+    window.plugin.anomalyInfo.beacons = [];
+    window.plugin.anomalyInfo.other = [];
+
+    var displayBounds = map.getBounds();
+    var portal;
+
+    // Get portals with artifacts (shard-related)
+    $.each(artifact.portalInfo, function(guid,data) {
+        $.each(data, function(type,detail) {
+            if (data[type].target !== undefined) {
+                if(type == 'rubiconres') { // Change from 'abaddonres' to 'rubiconres'
+                    portal = window.portals[guid];
+                    if(displayBounds.contains(portal.getLatLng())) {
+                                    window.plugin.anomalyInfo.resTargets.push(portal);
+                    }
+                } else if (type == 'rubiconenl') { // Change from 'abaddonenl' to 'rubiconenl'
+                    portal = window.portals[guid];
+                    if(displayBounds.contains(portal.getLatLng())) {
+                                    window.plugin.anomalyInfo.enlTargets.push(portal);
+                    }
+                } else {
+                    alert("Unknown target artifact type:"+type);
+                }
+            }
+
+            if(data[type].fragments) {
+                portal = window.portals[guid];
+                if(displayBounds.contains(portal.getLatLng())) {
+                            window.plugin.anomalyInfo.shardSources.push(portal);
+                }
+            }
+        });
+    });
+
+    // Check for captured shards
+    for(i = 0; i < window.plugin.anomalyInfo.shardSources.length; i++) {
+        if(window.plugin.anomalyInfo.isPortalResTarget(window.plugin.anomalyInfo.shardSources[i])) {
+            portal = window.plugin.anomalyInfo.shardSources[i];
+            portal.capturedByRes = 1;
+            window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
+            window.plugin.anomalyInfo.resCapturedShards.push(portal); // And add it back here
+        } else if (window.plugin.anomalyInfo.isPortalEnlTarget(window.plugin.anomalyInfo.shardSources[i])) {
+            portal = window.plugin.anomalyInfo.shardSources[i];
+            portal.capturedByEnl = 1;
+            window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
+            window.plugin.anomalyInfo.enlCapturedShards.push(portal); // And add it back here
+        }
+    }
+
+    // Get portals with ornaments (cluster, fracker, beacon)
+    $.each(window.portals, function(i, portal) {
+      var level = portal.options.level;
+      var team = portal.options.team;
+
+      if(portal.options.data.ornaments && portal.options.data.ornaments.length > 0 && displayBounds.contains(portal.getLatLng())) {
+          for(j = 0; j < portal.options.data.ornaments.length; j++) {
+              ornament = portal.options.data.ornaments[j];
+              if(ornament == "peFRACK") {
+                  window.plugin.anomalyInfo.frackers.push(portal);
+              } else if (ornament.startsWith("pe")) {
+                  window.plugin.anomalyInfo.beacons.push(portal);
+              } else if (ornament.match("_v")) {
+                  window.plugin.anomalyInfo.volatiles.push(portal);
+              } else if (ornament.startsWith("ap")) {
+                  window.plugin.anomalyInfo.clusters.push(portal);
+              } else {
+                  window.plugin.anomalyInfo.other.push(portal);
+              }
+          }
+      }
+    });
+
+    window.plugin.anomalyInfo.readyForRechargeRooms = true;
+}
+
+// ...
+// (rest of the code remains the same)
+    window.plugin.anomalyInfo.isPortalResTarget = function(portal) {
+        guid = portal.options.guid;
+        for(j = 0; j < window.plugin.anomalyInfo.resTargets.length; j++) {
+            targetPortal = window.plugin.anomalyInfo.resTargets[j];
+            if(targetPortal.options.guid == guid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    window.plugin.anomalyInfo.isPortalEnlTarget = function(portal) {
+        guid = portal.options.guid;
+        for(j = 0; j < window.plugin.anomalyInfo.enlTargets.length; j++) {
+            targetPortal = window.plugin.anomalyInfo.enlTargets[j];
+            if(targetPortal.options.guid == guid) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    //========== Display Methods. Ideally this is rewritten in jQuery/DOM someday ==================
+
+    // Stole this code line-by-line from portals-list.user.js
+    window.plugin.anomalyInfo.getPortalLink = function(portal) {
+      var coord = portal.getLatLng();
+      var perma = '/intel?ll='+coord.lat+','+coord.lng+'&z=17&pll='+coord.lat+','+coord.lng;
+
+      // jQuery's event handlers seem to be removed when the nodes are remove from the DOM
+      var link = document.createElement("a");
+      if(portal.options.data.title.length <= 20) {
+          link.textContent = portal.options.data.title;
+      } else {
+        link.textContent = portal.options.data.title.substr(0,20) + "...";
+      }
+      link.href = perma;
+      link.addEventListener("click", function(ev) {
+        renderPortalDetails(portal.options.guid);
+        ev.preventDefault();
+        return false;
+      }, false);
+      link.addEventListener("dblclick", function(ev) {
+        zoomToAndShowPortal(portal.options.guid, [coord.lat, coord.lng]);
+        ev.preventDefault();
+        return false;
+      });
+      return link;
+    }
+
+    window.plugin.anomalyInfo.fillPortalTableRow = function(portal, row, showCapturedShards) {
+        var portalCodeCell = row.appendChild(document.createElement('td'));
+        var portalTitleCell = row.appendChild(document.createElement('td'));
+        var portalLevelCell = row.appendChild(document.createElement('td'));
+
+        // Portal Dispatch Code
+        portalCodeCell.textContent = "N/C";
+        if(window.plugin.dispatchAssist
+            && window.plugin.dispatchAssist.portalDispatchInfo) {
+                var portalDispatchLength = Object.keys(window.plugin.dispatchAssist.portalDispatchInfo).length;
+                for(var i = 0; i < portalDispatchLength; i++) {
+                    var dispRecord = window.plugin.dispatchAssist.portalDispatchInfo[i];
+
+                    /*console.log(dispRecord);
+                    console.log(i);
+                    console.log(dispRecord["guid"]);
+                    console.log(portal.options.guid);
+                    console.log();*/
+
+                    if(dispRecord["guid"] == portal.options.guid) {
+                        portalCodeCell.textContent = window.plugin.dispatchAssist.portalDispatchInfo[i]["codename"];
+                    }
+                }
+        }
+/*
+        // Portal Dispatch Code
+        if(window.plugin.dispatchAssist
+            && window.plugin.dispatchAssist.portalDispatchInfo
+            && window.plugin.dispatchAssist.portalDispatchInfo[portal.options.guid])
+        {
+            portalCodeCell.textContent = window.plugin.dispatchAssist.portalDispatchInfo[portal.options.guid].codename;
+        } else {
+            for(var propertyName in window.plugin.dispatchAssist.portalDispatchInfo[0]) {
+                console.log("Dispatch: " + propertyName + " / " + window.plugin.dispatchAssist.portalDispatchInfo[0][propertyName]);
+            }
+            portalCodeCell.textContent = "N/C";
+        }
+*/
+
+        // Portal Name
+        if(showCapturedShards & (portal.capturedByRes || portal.capturedByEnl)) {
+            if(showCapturedShards && portal.capturedByRes) {
+                portalTitleCell.className = 'res';
+            } else if(showCapturedShards && portal.capturedByEnl) {
+                portalTitleCell.className = 'enl';
+            }
+
+            portalTitleCell.textContent = portal.options.data.title.substr(0,20);
+
+            var shardsDiv = document.createElement('div');
+            //shardsDiv.innerHTML = "&nbsp;&nbsp;&nbsp;&nbsp;Loading...";
+            shardsDiv.id = "#" + portal.options.guid + "_capturedInfo";
+            portalTitleCell.appendChild(shardsDiv);
+
+        } else {
+            portalTitleCell.appendChild(window.plugin.anomalyInfo.getPortalLink(portal));
+        }
+
+        // Portal Level and Alignment
+        portalLevelCell.textContent = "L"+portal.options.level;
+        owner = 'none';
+        if(portal.options.team == TEAM_RES) {
+            owner = 'res';
+        } else if (portal.options.team == TEAM_ENL) {
+            owner = 'enl';
+        }
+        portalLevelCell.className = owner;
+    }
+
+    window.plugin.anomalyInfo.createPortalTable = function(portalList, title) {
+        var table = document.createElement('table');
+        table.width = 200;
+
+        // Create Table Header
+        var titleRow = table.insertRow(-1);
+
+        var titleCell = document.createElement('th');
+        titleCell.textContent = title + ": " + portalList.length;
+        titleCell.style.textAlign = "center";
+
+        titleRow.appendChild(document.createElement('th')); // This one is empty
+        titleRow.appendChild(titleCell);
+        titleRow.appendChild(document.createElement('th')); // This one is empty
+
+        showCapturedShards = false;
+        if(title == "Res Targets w/ Shards" || title == "Enl Targets w/ Shards") {
+            showCapturedShards = true;
+        }
+
+        portalList.sort(function(a,b) {
+            return (a.options.data.title > b.options.data.title) ? 1 : ((b.options.data.title > a.options.data.title) ? -1 : 0);
+        });
+
+        // Insert table row for each portal
+        for(i = 0; i < portalList.length; i++) {
+            var portal = portalList[i];
+            var row = table.insertRow(-1);
+            window.plugin.anomalyInfo.fillPortalTableRow(portal, row, showCapturedShards);
+        }
+
+        return table;
+    }
+
+    window.plugin.anomalyInfo.createShardScoreTable = function() {
+        var table = document.createElement('table');
+        table.width = 200;
+
+        // Create Table Header
+        var titleRow = table.insertRow(-1);
+        var titleCell = document.createElement('th');
+        titleCell.textContent = "Shard Score";
+        titleCell.style.textAlign = "center";
+        titleRow.appendChild(titleCell);
+
+        // Create Score Row
+        var scoreRow = table.insertRow(-1);
+        var scoreCell = document.createElement('td');
+
+        var scoreboardTable = document.createElement('table');
+        scoreboardTable.width = 190;
+        scoreboardTable.style.fontSize = "large";
+
+        var resRow = scoreboardTable.insertRow(-1);
+        resRow.className = 'res';
+        var resTitleCell = document.createElement('td');
+        var resScoreCell = document.createElement('td');
+        var resScoreDiv = document.createElement('div');
+        resTitleCell.innerHTML = "RES:";
+        resScoreDiv.id = "resScoreDiv";
+        resScoreDiv.innerHTML = "0";
+        resScoreCell.appendChild(resScoreDiv);
+        resRow.appendChild(resTitleCell);
+        resRow.appendChild(resScoreCell);
+
+        var enlRow = scoreboardTable.insertRow(-1);
+        enlRow.className = 'enl';
+        var enlTitleCell = document.createElement('td');
+        var enlScoreCell = document.createElement('td');
+        var enlScoreDiv = document.createElement('div');
+        enlTitleCell.innerHTML = "ENL:";
+        enlScoreDiv.id = "enlScoreDiv";
+        enlScoreDiv.innerHTML = "0";
+        enlScoreCell.appendChild(enlScoreDiv);
+        enlRow.appendChild(enlTitleCell);
+        enlRow.appendChild(enlScoreCell);
+
+        scoreCell.appendChild(scoreboardTable);
+        scoreRow.appendChild(scoreCell);
+
+        var scoreDiv = document.getElementById('scoreDiv');
+        scoreDiv.innerHTML = "";
+        scoreDiv.appendChild(document.createElement('p'));
+        scoreDiv.appendChild(table);
+    }
+
+    window.plugin.anomalyInfo.doExponentialBackoff = function(array_index) {
+        var start = new Date().getTime();
+        var millisecondsToSleep = Math.pow(2, array_index);
+        if(millisecondsToSleep > 1000) // Let's not get ridiculous here...
+            millisecondsToSleep = 1000;
+        for (var i = 0; i < 1e7; i++) {
+            if ((new Date().getTime() - start) > millisecondsToSleep){
+                break;
+            }
+        }
+    }
+
+    window.plugin.anomalyInfo.createDetailedShardsButton = function() {
+        var table = document.createElement('table');
+        table.width = 200;
+
+        var buttonRow = table.insertRow(-1);
+        var buttonCell = buttonRow.appendChild(document.createElement('td'));
+        buttonCell.style.textAlign = "center";
+
+        var loadDetailedShards = document.createElement('a');
+        loadDetailedShards.textContent = "Load Detailed Shard Info";
+        loadDetailedShards.style.color = "red";
+        loadDetailedShards.style.border = "thin solid";
+        loadDetailedShards.style.padding = "3px";
+        loadDetailedShards.style.margin = "4px 3px 4px 5px";
+        $(loadDetailedShards).click(function() {
+            window.plugin.anomalyInfo.createShardScoreTable();
+            for(var i = 0; i < window.plugin.anomalyInfo.resCapturedShards.length; i++) {
+                window.plugin.anomalyInfo.doExponentialBackoff(i); // Exponential backoff on requesting data...
+                window.plugin.anomalyInfo.grabArtifactInfo(window.plugin.anomalyInfo.resCapturedShards[i].options.guid);
+            }
+            for(var i = 0; i < window.plugin.anomalyInfo.enlCapturedShards.length; i++) {
+                window.plugin.anomalyInfo.doExponentialBackoff(i); // Exponential backoff on requesting data...
+                window.plugin.anomalyInfo.grabArtifactInfo(window.plugin.anomalyInfo.enlCapturedShards[i].options.guid);
+            }
+        });
+
+        var warningLabel = document.createElement('p');
+        warningLabel.textContent = "Warning: this will do extra calls to Niantic servers. Use with caution.";
+        warningLabel.style.color = "red";
+
+        buttonCell.appendChild(loadDetailedShards);
+        buttonCell.appendChild(warningLabel);
+
+        return table;
+    }
+
+    window.plugin.anomalyInfo.getAnomalyInfoTable = function() {
+        // Setup main table
+        var table, row, cell0, cell1, cell2;
+        var container = $('<div>');
+
+        table = document.createElement('table');
+        table.className = 'filter';
+        container.append(table);
+
+        row = table.insertRow(-1);
+
+        cell0 = row.appendChild(document.createElement('td'));
+        cell1 = row.appendChild(document.createElement('td'));
+        cell2 = row.appendChild(document.createElement('td'));
+
+        cell0.width = 200;
+        cell1.width = 200;
+        cell2.width = 200;
+
+        // Set up column 0: Res Targets, Enl Targets, and Frackers
+        cell0.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.resTargets, "Res Targets"));
+        cell0.appendChild(document.createElement('p'));
+        cell0.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.enlTargets, "Enl Targets"));
+        cell0.appendChild(document.createElement('p'));
+        if(window.plugin.anomalyInfo.frackers.length > 0)
+            cell0.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.frackers, "Frackers"));
+
+        // Set up tables for captured shards. Where we put this depends on whether there are cluster portals...
+        var capturedShardsDiv = document.createElement('div');
+        if(window.plugin.anomalyInfo.resCapturedShards.length > 0) {
+            capturedShardsDiv.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.resCapturedShards, "Res Targets w/ Shards"));
+        }
+        if(window.plugin.anomalyInfo.enlCapturedShards.length > 0) {
+            capturedShardsDiv.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.enlCapturedShards, "Enl Targets w/ Shards"));
+        }
+
+        if(window.plugin.anomalyInfo.resCapturedShards.length > 0 || window.plugin.anomalyInfo.enlCapturedShards.length > 0) {
+            capturedShardsDiv.appendChild(document.createElement('p'));
+            var scoreDiv = document.createElement('div');
+            scoreDiv.id = "scoreDiv";
+            scoreDiv.appendChild(window.plugin.anomalyInfo.createDetailedShardsButton());
+            capturedShardsDiv.appendChild(scoreDiv);
+            //cell1.appendChild(window.plugin.anomalyInfo.createShardScoreTable());
+        }
+
+        // Set up column 1: Wild Shard Locations. If there are active cluster portals, captured shards will go here as well.
+        cell1.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.shardSources, "Wild Shards"));
+        cell1.appendChild(capturedShardsDiv);
+
+        // Set up column 2: If there are cluster portals, do clusters in column 2 and put captured shards in column 1. Else, move captured shards to column 2
+        if(window.plugin.anomalyInfo.clusters.length > 0) {
+            cell1.appendChild(document.createElement('p'));
+            cell1.appendChild(capturedShardsDiv);
+            cell2.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.clusters, "Cluster Portals"));
+        } else {
+            cell2.appendChild(capturedShardsDiv);
+        }
+
+        if(window.plugin.anomalyInfo.volatiles.length > 0) {
+            cell1.appendChild(window.plugin.anomalyInfo.createPortalTable(window.plugin.anomalyInfo.volatiles, "Volatile Portals"));
+        }
+
+        return container;
+    }
+
+    window.plugin.anomalyInfo.displayAnomalyInfo = function() {
+
+        // Parse the artifacts and ornaments seen by IITC
+        window.plugin.anomalyInfo.organizePortals();
+
+        // Display the results
+        dialog({
+            html: $('<div id="anomalyinfo">').append(window.plugin.anomalyInfo.getAnomalyInfoTable()),
+            dialogClass: 'ui-dialog-anomalyinfo',
+            title: 'Anomaly Info',
+            id: 'Anomaly_Info',
+            width: 700,
+            height: 800
+        });
+    }
+
+  var setup =  function() {
+    if(window.useAndroidPanes()) {
+
+    } else {
+      $('#toolbox').append(' <a onclick="window.plugin.anomalyInfo.displayAnomalyInfo()" title="Anomaly Info">Anomaly Info</a>');
+
+    }
+  }
+
+// PLUGIN END //////////////////////////////////////////////////////////
+
+
+  setup.info = plugin_info; //add the script info data to the function as a property
+  if(!window.bootPlugins) window.bootPlugins = [];
+    window.bootPlugins.push(setup);
+
+  // if IITC has already booted, immediately run the 'setup' function
+  if(window.iitcLoaded && typeof setup === 'function') setup();
+
+} // wrapper end
+
+
+// inject code into site context
+var script = document.createElement('script');
+var info = {};
+if (typeof GM_info !== 'undefined' && GM_info && GM_info.script) info.script = { version: GM_info.script.version, name: GM_info.script.name, description: GM_info.script.description };
+script.appendChild(document.createTextNode('('+ wrapper +')('+JSON.stringify(info)+');'));
+(document.body || document.head || document.documentElement)
