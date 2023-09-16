@@ -1,3 +1,4 @@
+
 // ==UserScript==
 // @name           IITC plugin: Anomaly Info S
 // @description    IITC Anomaly Info
@@ -17,8 +18,8 @@
 // ==/UserScript==
 
 // ===============================
-// Anomaly Info VcL
-// Plugin correct by ShadowVcL
+// Anomaly Info v7
+// Plugin correct by ShadowVcL 
 // ===============================
 
 function wrapper(plugin_info) {
@@ -81,10 +82,7 @@ function get_type(thing){
     }
 
 
-// ...
-// (previous code remains the same)
-
-// =========== Data Analysis - Look in the IITC structures to see what's there =================
+    // =========== Data Analysis - Look in the IITC structures to see what's there =================
     window.plugin.anomalyInfo.organizePortals = function (){
 
         window.plugin.anomalyInfo.resTargets = [];
@@ -142,35 +140,34 @@ function get_type(thing){
                 window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
                 window.plugin.anomalyInfo.enlCapturedShards.push(portal); // And add it back here
             }
+        }
 
-    // Get portals with ornaments (cluster, fracker, beacon)
-    $.each(window.portals, function(i, portal) {
-      var level = portal.options.level;
-      var team = portal.options.team;
+        // Get portals with ornaments (cluster, fracker, beacon)
+        $.each(window.portals, function(i, portal) {
+          var level = portal.options.level;
+          var team = portal.options.team;
 
-      if(portal.options.data.ornaments && portal.options.data.ornaments.length > 0 && displayBounds.contains(portal.getLatLng())) {
-          for(j = 0; j < portal.options.data.ornaments.length; j++) {
-              ornament = portal.options.data.ornaments[j];
-              if(ornament == "peFRACK") {
-                  window.plugin.anomalyInfo.frackers.push(portal);
-              } else if (ornament.startsWith("pe")) {
-                  window.plugin.anomalyInfo.beacons.push(portal);
-              } else if (ornament.match("_v")) {
-                  window.plugin.anomalyInfo.volatiles.push(portal);
-              } else if (ornament.startsWith("ap")) {
-                  window.plugin.anomalyInfo.clusters.push(portal);
-              } else {
-                  window.plugin.anomalyInfo.other.push(portal);
+          if(portal.options.data.ornaments && portal.options.data.ornaments.length > 0 && displayBounds.contains(portal.getLatLng())) {
+              for(j = 0; j < portal.options.data.ornaments.length; j++) {
+                  ornament = portal.options.data.ornaments[j];
+                  if(ornament == "peFRACK") {
+                      window.plugin.anomalyInfo.frackers.push(portal);
+                  } else if (ornament.startsWith("pe")) {
+                      window.plugin.anomalyInfo.beacons.push(portal);
+                  } else if (ornament.match("_v")) {
+                      window.plugin.anomalyInfo.volatiles.push(portal);
+                  } else if (ornament.startsWith("ap")) {
+                      window.plugin.anomalyInfo.clusters.push(portal);
+                  } else {
+                      window.plugin.anomalyInfo.other.push(portal);
+                  }
               }
           }
-      }
-    });
+        });
 
-    window.plugin.anomalyInfo.readyForRechargeRooms = true;
-}
+        window.plugin.anomalyInfo.readyForRechargeRooms = true;
+    }
 
-// ...
-// (rest of the code remains the same)
     window.plugin.anomalyInfo.isPortalResTarget = function(portal) {
         guid = portal.options.guid;
         for(j = 0; j < window.plugin.anomalyInfo.resTargets.length; j++) {
@@ -525,6 +522,7 @@ function get_type(thing){
   if(window.iitcLoaded && typeof setup === 'function') setup();
 
 } // wrapper end
+
 
 // inject code into site context
 var script = document.createElement('script');
