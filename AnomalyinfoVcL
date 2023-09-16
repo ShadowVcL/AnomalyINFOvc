@@ -105,12 +105,12 @@ window.plugin.anomalyInfo.organizePortals = function (){
     $.each(artifact.portalInfo, function(guid,data) {
         $.each(data, function(type,detail) {
             if (data[type].target !== undefined) {
-                if(type == 'rubiconres') { // Change from 'abaddonres' to 'rubiconres'
+                if(type == 'Targetres') { // Cambio de 'rubiconres' a 'Targetres'
                     portal = window.portals[guid];
                     if(displayBounds.contains(portal.getLatLng())) {
                                     window.plugin.anomalyInfo.resTargets.push(portal);
                     }
-                } else if (type == 'rubiconenl') { // Change from 'abaddonenl' to 'rubiconenl'
+                } else if (type == 'Targetenl') { // Cambio de 'rubiconenl' a 'Targetenl'
                     portal = window.portals[guid];
                     if(displayBounds.contains(portal.getLatLng())) {
                                     window.plugin.anomalyInfo.enlTargets.push(portal);
@@ -128,6 +128,7 @@ window.plugin.anomalyInfo.organizePortals = function (){
             }
         });
     });
+
 
     // Check for captured shards
     for(i = 0; i < window.plugin.anomalyInfo.shardSources.length; i++) {
