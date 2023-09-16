@@ -81,69 +81,65 @@ function get_type(thing){
     }
 
 
-// ...
-// (previous code remains the same)
+    // =========== Data Analysis - Look in the IITC structures to see what's there =================
+    window.plugin.anomalyInfo.organizePortals = function (){
 
-// =========== Data Analysis - Look in the IITC structures to see what's there =================
-window.plugin.anomalyInfo.organizePortals = function (){
+        window.plugin.anomalyInfo.resTargets = [];
+        window.plugin.anomalyInfo.enlTargets = [];
+        window.plugin.anomalyInfo.shardSources = [];
+        window.plugin.anomalyInfo.resCapturedShards = [];
+        window.plugin.anomalyInfo.enlCapturedShards = [];
+        window.plugin.anomalyInfo.frackers = [];
+        window.plugin.anomalyInfo.clusters = [];
+        window.plugin.anomalyInfo.volatiles = [];
+        window.plugin.anomalyInfo.beacons = [];
+        window.plugin.anomalyInfo.other = [];
 
-    window.plugin.anomalyInfo.resTargets = [];
-    window.plugin.anomalyInfo.enlTargets = [];
-    window.plugin.anomalyInfo.shardSources = [];
-    window.plugin.anomalyInfo.resCapturedShards = [];
-    window.plugin.anomalyInfo.enlCapturedShards = [];
-    window.plugin.anomalyInfo.frackers = [];
-    window.plugin.anomalyInfo.clusters = [];
-    window.plugin.anomalyInfo.volatiles = [];
-    window.plugin.anomalyInfo.beacons = [];
-    window.plugin.anomalyInfo.other = [];
+        var displayBounds = map.getBounds();
+        var portal;
 
-    var displayBounds = map.getBounds();
-    var portal;
+        // Get portals with artifacts (shard-related)
+        $.each(artifact.portalInfo, function(guid,data) {
+            $.each(data, function(type,detail) {
+                if (data[type].target !== undefined) {
+                    if(type == 'Targetres') {
+                        portal = window.portals[guid];
+                        if(displayBounds.contains(portal.getLatLng())) {
+                                        window.plugin.anomalyInfo.resTargets.push(portal);
+                        }
+                    } else if (type == 'Targetenl') {
+                        portal = window.portals[guid];
+                        if(displayBounds.contains(portal.getLatLng())) {
+                                        window.plugin.anomalyInfo.enlTargets.push(portal);
+                        }
+                    } else {
+                        alert("Unknown target artifact type:"+type);
+                    }
+                }
 
-    // Get portals with artifacts (shard-related)
-    $.each(artifact.portalInfo, function(guid,data) {
-        $.each(data, function(type,detail) {
-            if (data[type].target !== undefined) {
-                if(type == 'Targetres') { // Cambio de 'rubiconres' a 'Targetres'
+                if(data[type].fragments) {
                     portal = window.portals[guid];
                     if(displayBounds.contains(portal.getLatLng())) {
-                                    window.plugin.anomalyInfo.resTargets.push(portal);
+                            	window.plugin.anomalyInfo.shardSources.push(portal);
                     }
-                } else if (type == 'Targetenl') { // Cambio de 'rubiconenl' a 'Targetenl'
-                    portal = window.portals[guid];
-                    if(displayBounds.contains(portal.getLatLng())) {
-                                    window.plugin.anomalyInfo.enlTargets.push(portal);
-                    }
-                } else {
-                    alert("Unknown target artifact type:"+type);
                 }
-            }
-
-            if(data[type].fragments) {
-                portal = window.portals[guid];
-                if(displayBounds.contains(portal.getLatLng())) {
-                            window.plugin.anomalyInfo.shardSources.push(portal);
-                }
-            }
+            });
         });
-    });
 
-
-    // Check for captured shards
-    for(i = 0; i < window.plugin.anomalyInfo.shardSources.length; i++) {
-        if(window.plugin.anomalyInfo.isPortalResTarget(window.plugin.anomalyInfo.shardSources[i])) {
-            portal = window.plugin.anomalyInfo.shardSources[i];
-            portal.capturedByRes = 1;
-            window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
-            window.plugin.anomalyInfo.resCapturedShards.push(portal); // And add it back here
-        } else if (window.plugin.anomalyInfo.isPortalEnlTarget(window.plugin.anomalyInfo.shardSources[i])) {
-            portal = window.plugin.anomalyInfo.shardSources[i];
-            portal.capturedByEnl = 1;
-            window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
-            window.plugin.anomalyInfo.enlCapturedShards.push(portal); // And add it back here
+        // Check for captured shards
+        for(i = 0; i < window.plugin.anomalyInfo.shardSources.length; i++) {
+            if(window.plugin.anomalyInfo.isPortalResTarget(window.plugin.anomalyInfo.shardSources[i])) {
+                portal = window.plugin.anomalyInfo.shardSources[i];
+                portal.capturedByRes = 1;
+                window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
+                window.plugin.anomalyInfo.resCapturedShards.push(portal); // And add it back here
+            } else if (window.plugin.anomalyInfo.isPortalEnlTarget(window.plugin.anomalyInfo.shardSources[i])) {
+                portal = window.plugin.anomalyInfo.shardSources[i];
+                portal.capturedByEnl = 1;
+                window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
+                window.plugin.anomalyInfo.enlCapturedShards.push(portal); // And add it back here
+            }
         }
-    }
 
     // Get portals with ornaments (cluster, fracker, beacon)
     $.each(window.portals, function(i, portal) {
