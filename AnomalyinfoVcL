@@ -81,7 +81,10 @@ function get_type(thing){
     }
 
 
-    // =========== Data Analysis - Look in the IITC structures to see what's there =================
+// ...
+// (previous code remains the same)
+
+// =========== Data Analysis - Look in the IITC structures to see what's there =================
     window.plugin.anomalyInfo.organizePortals = function (){
 
         window.plugin.anomalyInfo.resTargets = [];
@@ -139,7 +142,6 @@ function get_type(thing){
                 window.plugin.anomalyInfo.shardSources.splice(i, 1); // Remove it from here
                 window.plugin.anomalyInfo.enlCapturedShards.push(portal); // And add it back here
             }
-        }
 
     // Get portals with ornaments (cluster, fracker, beacon)
     $.each(window.portals, function(i, portal) {
@@ -531,3 +533,4 @@ var info = {};
 if (typeof GM_info !== 'undefined' && GM_info && GM_info.script) info.script = { version: GM_info.script.version, name: GM_info.script.name, description: GM_info.script.description };
 script.appendChild(document.createTextNode('('+ wrapper +')('+JSON.stringify(info)+');'));
 (document.body || document.head || document.documentElement).appendChild(script);
+
