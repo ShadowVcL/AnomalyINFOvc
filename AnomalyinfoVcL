@@ -103,12 +103,12 @@ function get_type(thing){
         $.each(artifact.portalInfo, function(guid,data) {
             $.each(data, function(type,detail) {
                 if (data[type].target !== undefined) {
-                    if(type == 'targetres') {
+                    if(type == 'Targetres') {
                         portal = window.portals[guid];
                         if(displayBounds.contains(portal.getLatLng())) {
                                         window.plugin.anomalyInfo.resTargets.push(portal);
                         }
-                    } else if (type == 'targetenl') {
+                    } else if (type == 'Targetenl') {
                         portal = window.portals[guid];
                         if(displayBounds.contains(portal.getLatLng())) {
                                         window.plugin.anomalyInfo.enlTargets.push(portal);
